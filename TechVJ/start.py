@@ -100,34 +100,39 @@ async def save(client: Client, message: Message):
             except:
                 toID = fromID
             batch_temp.IS_BATCH[message.from_user.id] = False
-            tasks = []
-            for msgid in range(fromID, toID+1):
-                if batch_temp.IS_BATCH.get(message.from_user.id): break
-                user_data = await db.get_session(message.from_user.id)
-                if user_data is None:
-                    await message.reply("**For Downloading Restricted Content You Have To /login First.**")
-                    batch_temp.IS_BATCH[message.from_user.id] = True
-                    return
-                try:
-                    acc = Client("saverestricted", session_string=user_data, api_hash=API_HASH, api_id=API_ID)
-                    await acc.connect()
-                except:
-                    batch_temp.IS_BATCH[message.from_user.id] = True
-                    return await message.reply("**Your Login Session Expired. So /logout First Then Login Again By - /login**")
-                
-                if "https://t.me/c/" in message.text:
-                    chatid = int("-100" + datas[4])
-                    tasks.append(handle_private(client, acc, message, chatid, msgid))
-                elif "https://t.me/b/" in message.text:
-                    username = datas[4]
-                    tasks.append(handle_private(client, acc, message, username, msgid))
-                else:
-                    username = datas[3]
-                    tasks.append(handle_public(client, acc, message, username, msgid))
 
-                await asyncio.sleep(1)  # Added delay to avoid rate limits
+            # Process messages in batches of 10
+            for batch_start in range(fromID, toID + 1, 10):
+                batch_end = min(batch_start + 10, toID + 1)
+                tasks = []
+                for msgid in range(batch_start, batch_end):
+                    if batch_temp.IS_BATCH.get(message.from_user.id): break
+                    user_data = await db.get_session(message.from_user.id)
+                    if user_data is None:
+                        await message.reply("**For Downloading Restricted Content You Have To /login First.**")
+                        batch_temp.IS_BATCH[message.from_user.id] = True
+                        return
+                    try:
+                        acc = Client("saverestricted", session_string=user_data, api_hash=API_HASH, api_id=API_ID)
+                        await acc.connect()
+                    except:
+                        batch_temp.IS_BATCH[message.from_user.id] = True
+                        return await message.reply("**Your Login Session Expired. So /logout First Then Login Again By - /login**")
+                    
+                    if "https://t.me/c/" in message.text:
+                        chatid = int("-100" + datas[4])
+                        tasks.append(handle_private(client, acc, message, chatid, msgid))
+                    elif "https://t.me/b/" in message.text:
+                        username = datas[4]
+                        tasks.append(handle_private(client, acc, message, username, msgid))
+                    else:
+                        username = datas[3]
+                        tasks.append(handle_public(client, acc, message, username, msgid))
 
-            await asyncio.gather(*tasks)
+                # Process the current batch
+                await asyncio.gather(*tasks)
+                await asyncio.sleep(1)  # Add a small delay between batches
+
             batch_temp.IS_BATCH[message.from_user.id] = True
     except Exception as e:
         logger.error(f"Error processing message: {e}")
