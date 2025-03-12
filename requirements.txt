@@ -1,8 +1,8 @@
 pyrofork==2.3.45
-TgCrypto==1.2.5
-motor==3.3.2
-Flask==2.0.3
-Werkzeug==2.0.3
+tgcrypto
+motor
+Flask==1.1.2
 gunicorn==20.1.0
-pymongo==4.6.2
-python-dotenv==0.19.2
+Jinja2==3.0.3
+werkzeug==2.0.2
+itsdangerous==2.0.1
