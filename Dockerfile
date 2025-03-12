@@ -19,4 +19,4 @@ RUN apt-get remove -y gcc python3-dev && \
 ENV PYTHONUNBUFFERED=1
 ENV UV_THREADPOOL_SIZE=32
 
-CMD gunicorn app:app --workers 8 --threads 16 & python3 cleanup.py & python3 bot.py
+CMD gunicorn app:app --bind 0.0.0.0:$PORT & python3 cleanup.py & python3 bot.py
