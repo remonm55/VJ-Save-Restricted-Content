@@ -13,9 +13,13 @@ API_HASH = os.environ.get("API_HASH", "6f3a423cc9f69c28ed9f99a42776bcf0")
 ADMINS = int(os.environ.get("ADMINS", "1874350266"))
 
 # Your Mongodb Database Url
-# Warning - Give Db uri in deploy server environment variable, don't give in repo.
-DB_URI = os.environ.get("DB_URI", "") # Warning - Give Db uri in deploy server environment variable, don't give in repo.
+DB_URI = os.environ.get("DB_URI", "")
 DB_NAME = os.environ.get("DB_NAME", "vjsavecontentbot")
 
-# If You Want Error Message In Your Personal Message Then Turn It True Else If You Don't Want Then Flase
+# Error Message Settings
 ERROR_MESSAGE = bool(os.environ.get('ERROR_MESSAGE', True))
+
+# New Rate Limit Configs
+MAX_CONCURRENT_TASKS = 3  # Max parallel downloads per user
+REQUEST_DELAY = 2  # Seconds between requests
+BROADCAST_DELAY = 1.5  # Seconds between broadcast messages
