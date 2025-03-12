@@ -13,4 +13,5 @@ RUN pip3 install --no-cache-dir -U pip setuptools wheel && \
 
 COPY . .
 
-CMD gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 && python3 -m bot
+# Start bot first, then web server
+CMD python3 -m bot && gunicorn app:app --bind 0.0.0.0:$PORT --workers 2
