@@ -1,8 +1,9 @@
 pyrofork==2.3.45
-tgcrypto
-motor
-Flask==1.1.2
+tgcrypto==1.2.3
+motor==3.3.2
+Flask==2.0.3
 gunicorn==20.1.0
+aiohttp==3.8.5
 Jinja2==3.0.3
-werkzeug==2.0.2
+Werkzeug==2.0.3
 itsdangerous==2.0.1
