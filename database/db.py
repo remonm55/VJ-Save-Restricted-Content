@@ -4,7 +4,7 @@ from config import DB_NAME, DB_URI
 class Database:
     
     def __init__(self, uri, database_name):
-        self._client = motor.motor_asyncio.AsyncIOMotorClient(uri)
+        self._client = motor.motor_asyncio.AsyncIOMotorClient(uri, maxPoolSize=100, minPoolSize=10)
         self.db = self._client[database_name]
         self.col = self.db.users
 
@@ -20,7 +20,7 @@ class Database:
         await self.col.insert_one(user)
     
     async def is_user_exist(self, id):
-        user = await self.col.find_one({'id':int(id)})
+        user = await self.col.find_one({'id': int(id)})
         return bool(user)
     
     async def total_users_count(self):
@@ -38,6 +38,6 @@ class Database:
 
     async def get_session(self, id):
         user = await self.col.find_one({'id': int(id)})
-        return user.get('session')
+        return user.get('session') if user else None
 
 db = Database(DB_URI, DB_NAME)
