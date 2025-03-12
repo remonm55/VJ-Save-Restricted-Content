@@ -11,6 +11,10 @@ from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
 from config import API_ID, API_HASH, ERROR_MESSAGE
 from database.db import db
 from TechVJ.strings import HELP_TXT
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class batch_temp(object):
     IS_BATCH = {}
@@ -84,44 +88,48 @@ async def send_cancel(client: Client, message: Message):
 
 @Client.on_message(filters.text & filters.private)
 async def save(client: Client, message: Message):
-    if "https://t.me/" in message.text:
-        if batch_temp.IS_BATCH.get(message.from_user.id) == False:
-            return await message.reply_text("**One Task Is Already Processing. Wait For Complete It. If You Want To Cancel This Task Then Use - /cancel**")
-        datas = message.text.split("/")
-        temp = datas[-1].replace("?single","").split("-")
-        fromID = int(temp[0].strip())
-        try:
-            toID = int(temp[1].strip())
-        except:
-            toID = fromID
-        batch_temp.IS_BATCH[message.from_user.id] = False
-        tasks = []
-        for msgid in range(fromID, toID+1):
-            if batch_temp.IS_BATCH.get(message.from_user.id): break
-            user_data = await db.get_session(message.from_user.id)
-            if user_data is None:
-                await message.reply("**For Downloading Restricted Content You Have To /login First.**")
-                batch_temp.IS_BATCH[message.from_user.id] = True
-                return
+    try:
+        if "https://t.me/" in message.text:
+            if batch_temp.IS_BATCH.get(message.from_user.id) == False:
+                return await message.reply_text("**One Task Is Already Processing. Wait For Complete It. If You Want To Cancel This Task Then Use - /cancel**")
+            datas = message.text.split("/")
+            temp = datas[-1].replace("?single","").split("-")
+            fromID = int(temp[0].strip())
             try:
-                acc = Client("saverestricted", session_string=user_data, api_hash=API_HASH, api_id=API_ID)
-                await acc.connect()
+                toID = int(temp[1].strip())
             except:
-                batch_temp.IS_BATCH[message.from_user.id] = True
-                return await message.reply("**Your Login Session Expired. So /logout First Then Login Again By - /login**")
-            
-            if "https://t.me/c/" in message.text:
-                chatid = int("-100" + datas[4])
-                tasks.append(handle_private(client, acc, message, chatid, msgid))
-            elif "https://t.me/b/" in message.text:
-                username = datas[4]
-                tasks.append(handle_private(client, acc, message, username, msgid))
-            else:
-                username = datas[3]
-                tasks.append(handle_public(client, acc, message, username, msgid))
+                toID = fromID
+            batch_temp.IS_BATCH[message.from_user.id] = False
+            tasks = []
+            for msgid in range(fromID, toID+1):
+                if batch_temp.IS_BATCH.get(message.from_user.id): break
+                user_data = await db.get_session(message.from_user.id)
+                if user_data is None:
+                    await message.reply("**For Downloading Restricted Content You Have To /login First.**")
+                    batch_temp.IS_BATCH[message.from_user.id] = True
+                    return
+                try:
+                    acc = Client("saverestricted", session_string=user_data, api_hash=API_HASH, api_id=API_ID)
+                    await acc.connect()
+                except:
+                    batch_temp.IS_BATCH[message.from_user.id] = True
+                    return await message.reply("**Your Login Session Expired. So /logout First Then Login Again By - /login**")
+                
+                if "https://t.me/c/" in message.text:
+                    chatid = int("-100" + datas[4])
+                    tasks.append(handle_private(client, acc, message, chatid, msgid))
+                elif "https://t.me/b/" in message.text:
+                    username = datas[4]
+                    tasks.append(handle_private(client, acc, message, username, msgid))
+                else:
+                    username = datas[3]
+                    tasks.append(handle_public(client, acc, message, username, msgid))
 
-        await asyncio.gather(*tasks)
-        batch_temp.IS_BATCH[message.from_user.id] = True
+            await asyncio.gather(*tasks)
+            batch_temp.IS_BATCH[message.from_user.id] = True
+    except Exception as e:
+        logger.error(f"Error processing message: {e}")
+        await message.reply_text("An error occurred while processing your request.")
 
 async def handle_public(client: Client, acc, message: Message, username: str, msgid: int):
     try:
