@@ -1,8 +1,8 @@
 pyrofork==2.3.45
 TgCrypto==1.2.5
-motor==3.1.2
+motor==3.3.2  # Updated motor version
 Flask==2.0.3
 Werkzeug==2.0.3
 gunicorn==20.1.0
-pymongo==3.13.0
+pymongo==4.6.2  # Compatible version with motor 3.3.2
 python-dotenv==0.19.2
