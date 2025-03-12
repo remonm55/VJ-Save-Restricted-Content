@@ -19,6 +19,7 @@ async def downstatus(client, statusfile, message, chat):
     while True:
         if os.path.exists(statusfile):
             break
+
         await asyncio.sleep(3)
       
     while os.path.exists(statusfile):
@@ -30,10 +31,13 @@ async def downstatus(client, statusfile, message, chat):
         except:
             await asyncio.sleep(5)
 
+
+# upload status
 async def upstatus(client, statusfile, message, chat):
     while True:
         if os.path.exists(statusfile):
             break
+
         await asyncio.sleep(3)      
     while os.path.exists(statusfile):
         with open(statusfile, "r") as upread:
@@ -44,10 +48,14 @@ async def upstatus(client, statusfile, message, chat):
         except:
             await asyncio.sleep(5)
 
+
+# progress writer
 def progress(current, total, message, type):
     with open(f'{message.id}{type}status.txt', "w") as fileup:
         fileup.write(f"{current * 100 / total:.1f}%")
 
+
+# start command
 @Client.on_message(filters.command(["start"]))
 async def send_start(client: Client, message: Message):
     if not await db.is_user_exist(message.from_user.id):
@@ -67,6 +75,8 @@ async def send_start(client: Client, message: Message):
     )
     return
 
+
+# help command
 @Client.on_message(filters.command(["help"]))
 async def send_help(client: Client, message: Message):
     await client.send_message(
@@ -74,6 +84,7 @@ async def send_help(client: Client, message: Message):
         text=f"{HELP_TXT}"
     )
 
+# cancel command
 @Client.on_message(filters.command(["cancel"]))
 async def send_cancel(client: Client, message: Message):
     batch_temp.IS_BATCH[message.from_user.id] = True
@@ -146,9 +157,11 @@ async def save(client: Client, message: Message):
                             await client.send_message(message.chat.id, f"Error: {e}", reply_to_message_id=message.id)
 
             # wait time
-            await asyncio.sleep(5)  # Increased wait time to avoid rate limits
+            await asyncio.sleep(3)
         batch_temp.IS_BATCH[message.from_user.id] = True
 
+
+# handle private
 async def handle_private(client: Client, acc, message: Message, chatid: int, msgid: int):
     msg: Message = await acc.get_messages(chatid, msgid)
     if msg.empty: return 
@@ -257,6 +270,8 @@ async def handle_private(client: Client, acc, message: Message, chatid: int, msg
         os.remove(file)
     await client.delete_messages(message.chat.id,[smsg.id])
 
+
+# get the type of message
 def get_message_type(msg: pyrogram.types.messages_and_media.message.Message):
     try:
         msg.document.file_id
@@ -305,3 +320,4 @@ def get_message_type(msg: pyrogram.types.messages_and_media.message.Message):
         return "Text"
     except:
         pass
+        
