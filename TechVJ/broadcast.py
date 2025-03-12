@@ -25,6 +25,7 @@ async def broadcast_messages(user_id, message):
     except Exception as e:
         return False, "Error"
 
+
 @Client.on_message(filters.command("broadcast") & filters.user(ADMINS) & filters.reply)
 async def verupikkals(bot, message):
     users = await db.get_all_users()
@@ -39,9 +40,9 @@ async def verupikkals(bot, message):
     done = 0
     blocked = 0
     deleted = 0
-    failed = 0
-    success = 0
+    failed =0
 
+    success = 0
     async for user in users:
         if 'id' in user:
             pti, sh = await broadcast_messages(int(user['id']), b_msg)
@@ -58,6 +59,7 @@ async def verupikkals(bot, message):
             if not done % 20:
                 await sts.edit(f"Broadcast in progress:\n\nTotal Users {total_users}\nCompleted: {done} / {total_users}\nSuccess: {success}\nBlocked: {blocked}\nDeleted: {deleted}")    
         else:
+            # Handle the case where 'id' key is missing in the user dictionary
             done += 1
             failed += 1
             if not done % 20:
