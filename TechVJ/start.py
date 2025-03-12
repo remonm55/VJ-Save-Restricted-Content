@@ -1,118 +1,103 @@
-# ... [Keep the original header comments] ...
-
 import os
-import asyncio 
-import pyrogram
+import asyncio
+import logging
+import psutil
 from pyrogram import Client, filters, enums
-from pyrogram.errors import FloodWait, UserIsBlocked, InputUserDeactivated
-from config import API_ID, API_HASH, ERROR_MESSAGE, MAX_CONCURRENT_TASKS, REQUEST_DELAY
+from pyrogram.types import Message
+from config import *
 from database.db import db
 
-class batch_temp(object):
-    IS_BATCH = {}
+logger = logging.getLogger(__name__)
 
-async def downstatus(client, statusfile, message, chat):
-    while True:
-        if os.path.exists(statusfile):
-            break
-        await asyncio.sleep(3)
-      
-    while os.path.exists(statusfile):
-        with open(statusfile, "r") as downread:
-            txt = downread.read()
-        try:
-            await client.edit_message_text(chat, message.id, f"**Downloaded:** **{txt}**")
-            await asyncio.sleep(10)
-        except:
-            await asyncio.sleep(5)
+class TurboEngine:
+    active_tasks = {}
+    semaphore = asyncio.Semaphore(MAX_CONCURRENT)
 
-async def upstatus(client, statusfile, message, chat):
-    while True:
-        if os.path.exists(statusfile):
-            break
-        await asyncio.sleep(3)      
-    while os.path.exists(statusfile):
-        with open(statusfile, "r") as upread:
-            txt = upread.read()
-        try:
-            await client.edit_message_text(chat, message.id, f"**Uploaded:** **{txt}**")
-            await asyncio.sleep(10)
-        except:
-            await asyncio.sleep(5)
+    @staticmethod
+    async def memory_safe():
+        mem = psutil.virtual_memory()
+        return (mem.available / 1024 / 1024) > MEMORY_LIMIT
 
-def progress(current, total, message, type):
-    with open(f'{message.id}{type}status.txt', "w") as fileup:
-        fileup.write(f"{current * 100 / total:.1f}%")
+async def turbo_download(client, acc, msg, message):
+    try:
+        file = await acc.download_media(
+            msg,
+            file_name=f"turbo_{message.id}.temp",
+            block=False,
+            chunk_size=CHUNK_SIZE
+        )
+        return file
+    except Exception as e:
+        logger.error(f"Download failed: {str(e)}")
+        raise
 
-@Client.on_message(filters.command(["start"]))
-async def send_start(client: Client, message: Message):
-    # ... [Keep original start command unchanged] ...
+async def turbo_upload(client, message, file):
+    try:
+        await client.send_document(
+            message.chat.id,
+            file,
+            force_document=True,
+            progress=progress_handler,
+            progress_args=(message.id, "up")
+        )
+    except Exception as e:
+        logger.error(f"Upload failed: {str(e)}")
+        raise
 
-@Client.on_message(filters.command(["help"]))
-async def send_help(client: Client, message: Message):
-    # ... [Keep original help command unchanged] ...
+async def progress_handler(current, total, message_id, direction):
+    progress = f"{current * 100 / total:.1f}%"
+    try:
+        with open(f"{message_id}_{direction}.progress", "w") as f:
+            f.write(progress)
+    except:
+        pass
 
-@Client.on_message(filters.command(["cancel"]))
-async def send_cancel(client: Client, message: Message):
-    batch_temp.IS_BATCH[message.from_user.id] = True
-    await client.send_message(message.chat.id, "**Batch Successfully Cancelled.**")
+@Client.on_message(filters.command(["start", "help", "cancel"]))
+async def command_handler(client: Client, message: Message):
+    await message.reply("⚡ Turbo Mode Active ⚡")
 
 @Client.on_message(filters.text & filters.private)
-async def save(client: Client, message: Message):
-    if "https://t.me/" not in message.text:
-        return
-    
+async def turbo_handler(client: Client, message: Message):
     user_id = message.from_user.id
-    if batch_temp.IS_BATCH.get(user_id) == False:
-        return await message.reply_text("**Another task is in progress. Use /cancel to abort.**")
     
-    batch_temp.IS_BATCH[user_id] = False
-    sem = asyncio.Semaphore(MAX_CONCURRENT_TASKS)
-    
-    try:
-        datas = message.text.split("/")
-        temp = datas[-1].replace("?single","").split("-")
-        fromID = int(temp[0].strip())
-        toID = int(temp[1].strip()) if len(temp) > 1 else fromID
-        
-        async def process_msg(msgid):
-            async with sem:
-                if batch_temp.IS_BATCH.get(user_id):
-                    return
-                
-                await asyncio.sleep(REQUEST_DELAY)  # Rate limiting
-                
-                user_data = await db.get_session(user_id)
-                if not user_data:
-                    await message.reply("**Please /login first.**")
-                    batch_temp.IS_BATCH[user_id] = True
-                    return
-                
-                try:
-                    async with Client("saverestricted", session_string=user_data, 
-                                    api_hash=API_HASH, api_id=API_ID) as acc:
-                        # ... [Keep original media handling logic] ...
-                        # Add proper cleanup in finally blocks
-                except Exception as e:
-                    if ERROR_MESSAGE:
-                        await client.send_message(user_id, f"Error: {str(e)}")
-        
-        tasks = []
-        for msgid in range(fromID, toID+1):
-            if batch_temp.IS_BATCH.get(user_id):
-                break
-            tasks.append(process_msg(msgid))
-            if len(tasks) >= MAX_CONCURRENT_TASKS * 2:
-                await asyncio.gather(*tasks)
-                tasks = []
-        
-        if tasks:
-            await asyncio.gather(*tasks)
-            
-    except Exception as e:
-        await message.reply(f"Error processing request: {str(e)}")
-    finally:
-        batch_temp.IS_BATCH[user_id] = True
-        # Add any necessary cleanup
+    if not await TurboEngine.memory_safe():
+        await message.reply("⚠️ Server resources busy, try again later")
+        return
 
-# ... [Keep remaining helper functions but add cleanup] ...
+    async with TurboEngine.semaphore:
+        try:
+            # Get user session
+            user_data = await db.get_session(user_id)
+            if not user_data:
+                await message.reply("🔑 Please /login first")
+                return
+
+            # Process message
+            async with Client(
+                "turbo_client",
+                session_string=user_data,
+                api_id=API_ID,
+                api_hash=API_HASH,
+                config_file="telegram.ini"
+            ) as acc:
+                
+                # Download
+                file = await turbo_download(client, acc, msg, message)
+                await asyncio.sleep(REQUEST_DELAY)
+                
+                # Upload
+                await turbo_upload(client, message, file)
+
+        except Exception as e:
+            logger.error(f"Turbo failed: {str(e)}")
+            await message.reply(f"❌ Error: {str(e)}")
+        finally:
+            # Cleanup
+            for f in [file, 
+                     f"{message.id}_up.progress",
+                     f"{message.id}_down.progress"]:
+                try:
+                    if os.path.exists(f):
+                        os.remove(f)
+                except:
+                    pass
