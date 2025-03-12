@@ -1,42 +1,43 @@
 from pyrogram import Client
+from pyrogram.errors import FloodWait
 from config import API_ID, API_HASH, BOT_TOKEN
 import asyncio
 import time
+import os
 
 class Bot(Client):
     def __init__(self):
         super().__init__(
-            "techvj_login",
+            name="techvj_session",  # Changed session name
             api_id=API_ID,
             api_hash=API_HASH,
             bot_token=BOT_TOKEN,
             plugins=dict(root="TechVJ"),
-            workers=4,  # Reduced workers
-            sleep_threshold=30,
-            in_memory=True
+            workers=2,  # Reduced workers
+            sleep_threshold=60,
+            in_memory=False  # Enable session persistence
         )
 
-    async def start(self):
-        retries = 0
-        max_retries = 5
-        while retries < max_retries:
+    async def safe_start(self):
+        attempts = 0
+        max_attempts = 3
+        while attempts < max_attempts:
             try:
-                await super().start()
-                print('Bot Started Powered By @VJ_Botz')
-                return
+                await self.start()
+                print('Bot Started Successfully')
+                await self.idle()
             except FloodWait as e:
-                wait = e.value + 10
+                wait = e.value + 30
                 print(f'FloodWait: Sleeping {wait} seconds')
                 time.sleep(wait)
-                retries += 1
+                attempts += 1
             except Exception as e:
-                print(f'Start failed: {e}')
+                print(f'Critical Error: {e}')
                 break
-        print('Bot failed to start')
-
-    async def stop(self, *args):
-        await super().stop()
-        print('Bot Stopped Bye')
+            finally:
+                await self.stop()
+        print('Failed to start after multiple attempts')
 
 if __name__ == "__main__":
-    asyncio.run(Bot().start())
+    bot = Bot()
+    asyncio.run(bot.safe_start())
