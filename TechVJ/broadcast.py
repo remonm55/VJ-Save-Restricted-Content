@@ -1,7 +1,7 @@
 from pyrogram.errors import InputUserDeactivated, UserNotParticipant, FloodWait, UserIsBlocked, PeerIdInvalid
 from database.db import db
 from pyrogram import Client, filters
-from config import ADMINS, BROADCAST_DELAY
+from config import ADMINS
 import asyncio
 import datetime
 import time
@@ -9,10 +9,9 @@ import time
 async def broadcast_messages(user_id, message):
     try:
         await message.copy(chat_id=user_id)
-        await asyncio.sleep(BROADCAST_DELAY)  # Add mandatory delay
         return True, "Success"
     except FloodWait as e:
-        await asyncio.sleep(e.value + 2)  # Extra safety margin
+        await asyncio.sleep(e.value)
         return await broadcast_messages(user_id, message)
     except InputUserDeactivated:
         await db.delete_user(int(user_id))
@@ -24,7 +23,7 @@ async def broadcast_messages(user_id, message):
         await db.delete_user(int(user_id))
         return False, "Error"
     except Exception as e:
-        return False, f"Error: {str(e)}"
+        return False, "Error"
 
 
 @Client.on_message(filters.command("broadcast") & filters.user(ADMINS) & filters.reply)
@@ -33,47 +32,38 @@ async def verupikkals(bot, message):
     b_msg = message.reply_to_message
     if not b_msg:
         return await message.reply_text("**Reply This Command To Your Broadcast Message**")
-    
-    sts = await message.reply_text("Broadcasting your messages...")
+    sts = await message.reply_text(
+        text='Broadcasting your messages...'
+    )
     start_time = time.time()
     total_users = await db.total_users_count()
-    
     done = 0
-    success = 0
     blocked = 0
     deleted = 0
-    failed = 0
-    
-    sem = asyncio.Semaphore(5)  # Limit concurrent broadcasts
-    
-    async def _send(user):
-        nonlocal done, success, blocked, deleted, failed
-        async with sem:
-            if 'id' in user:
-                pti, sh = await broadcast_messages(int(user['id']), b_msg)
-                if pti:
-                    success += 1
-                else:
-                    if sh == "Blocked": blocked += 1
-                    elif sh == "Deleted": deleted += 1
-                    else: failed += 1
-                done += 1
-                
-                if done % 10 == 0:
-                    try:
-                        await sts.edit(f"Broadcast Progress:\nTotal: {total_users}\nDone: {done}\nSuccess: {success}\nBlocked: {blocked}\nDeleted: {deleted}\nFailed: {failed}")
-                    except:
-                        pass
-    
-    tasks = []
+    failed =0
+
+    success = 0
     async for user in users:
-        tasks.append(_send(user))
-        if len(tasks) >= 100:  # Batch processing
-            await asyncio.gather(*tasks)
-            tasks = []
-    
-    if tasks:
-        await asyncio.gather(*tasks)
+        if 'id' in user:
+            pti, sh = await broadcast_messages(int(user['id']), b_msg)
+            if pti:
+                success += 1
+            elif pti == False:
+                if sh == "Blocked":
+                    blocked += 1
+                elif sh == "Deleted":
+                    deleted += 1
+                elif sh == "Error":
+                    failed += 1
+            done += 1
+            if not done % 20:
+                await sts.edit(f"Broadcast in progress:\n\nTotal Users {total_users}\nCompleted: {done} / {total_users}\nSuccess: {success}\nBlocked: {blocked}\nDeleted: {deleted}")    
+        else:
+            # Handle the case where 'id' key is missing in the user dictionary
+            done += 1
+            failed += 1
+            if not done % 20:
+                await sts.edit(f"Broadcast in progress:\n\nTotal Users {total_users}\nCompleted: {done} / {total_users}\nSuccess: {success}\nBlocked: {blocked}\nDeleted: {deleted}")    
     
     time_taken = datetime.timedelta(seconds=int(time.time()-start_time))
-    await sts.edit(f"Broadcast Completed:\nTime: {time_taken}\nTotal: {total_users}\nSuccess: {success}\nBlocked: {blocked}\nDeleted: {deleted}\nFailed: {failed}")
+    await sts.edit(f"Broadcast Completed:\nCompleted in {time_taken} seconds.\n\nTotal Users {total_users}\nCompleted: {done} / {total_users}\nSuccess: {success}\nBlocked: {blocked}\nDeleted: {deleted}")
