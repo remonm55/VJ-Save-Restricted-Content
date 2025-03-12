@@ -1,21 +1,19 @@
-from pyrogram import Client
+from pyrogram import Client, idle
 from pyrogram.errors import FloodWait
 from config import API_ID, API_HASH, BOT_TOKEN
 import asyncio
 import time
-import os
 
 class Bot(Client):
     def __init__(self):
         super().__init__(
-            name="techvj_session",  # Changed session name
+            "techvj_session",
             api_id=API_ID,
             api_hash=API_HASH,
             bot_token=BOT_TOKEN,
             plugins=dict(root="TechVJ"),
-            workers=2,  # Reduced workers
-            sleep_threshold=60,
-            in_memory=False  # Enable session persistence
+            workers=2,
+            sleep_threshold=30
         )
 
     async def safe_start(self):
@@ -25,19 +23,28 @@ class Bot(Client):
             try:
                 await self.start()
                 print('Bot Started Successfully')
-                await self.idle()
+                await idle()  # Corrected idle usage
+                return True
             except FloodWait as e:
-                wait = e.value + 30
-                print(f'FloodWait: Sleeping {wait} seconds')
+                wait = e.value + 10
+                print(f'⏳ FloodWait: Sleeping {wait} seconds')
                 time.sleep(wait)
                 attempts += 1
             except Exception as e:
-                print(f'Critical Error: {e}')
+                print(f'🚨 Critical Error: {e}')
                 break
             finally:
-                await self.stop()
-        print('Failed to start after multiple attempts')
+                if self.is_initialized:
+                    await self.stop()
+                    print('Bot Stopped Cleanly')
+        return False
 
 if __name__ == "__main__":
     bot = Bot()
-    asyncio.run(bot.safe_start())
+    loop = asyncio.get_event_loop()
+    try:
+        loop.run_until_complete(bot.safe_start())
+    except KeyboardInterrupt:
+        print('\n🚫 Manual Interruption - Shutting Down')
+    finally:
+        loop.close()
