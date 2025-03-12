@@ -44,9 +44,9 @@ async def main(bot: Client, message: Message):
     await phone_number_msg.reply("Sending OTP...")
     try:
         code = await client.send_code(phone_number)
-        phone_code_msg = await bot.ask(user_id, "Please check for an OTP in official telegram account. If you got it, send OTP here after reading the below format. \n\nIf OTP is 12345, **please send it as** 1 2 3 4 5.\n\n**Enter /cancel to cancel The Procces**", filters=filters.text, timeout=600)
+        phone_code_msg = await bot.ask(user_id, "Please check for an OTP in official telegram account. If you got it, send OTP here after reading the below format. \n\nIf OTP is `12345`, **please send it as** `1 2 3 4 5`.\n\n**Enter /cancel to cancel The Procces**", filters=filters.text, timeout=600)
     except PhoneNumberInvalid:
-        await phone_number_msg.reply('PHONE_NUMBER **is invalid.**')
+        await phone_number_msg.reply('`PHONE_NUMBER` **is invalid.**')
         return
     if phone_code_msg.text=='/cancel':
         return await phone_code_msg.reply('<b>process cancelled !</b>')
@@ -80,5 +80,10 @@ async def main(bot: Client, message: Message):
             await uclient.connect()
             await db.set_session(message.from_user.id, session=string_session)
     except Exception as e:
-        return await message.reply_text(f"<b>ERROR IN LOGIN:</b> {e}")
+        return await message.reply_text(f"<b>ERROR IN LOGIN:</b> `{e}`")
     await bot.send_message(message.from_user.id, "<b>Account Login Successfully.\n\nIf You Get Any Error Related To AUTH KEY Then /logout first and /login again</b>")
+
+
+# Don't Remove Credit Tg - @VJ_Botz
+# Subscribe YouTube Channel For Amazing Bot https://youtube.com/@Tech_VJ
+# Ask Doubt on telegram @KingVJ01
