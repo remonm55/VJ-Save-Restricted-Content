@@ -5,65 +5,88 @@ from config import ADMINS
 import asyncio
 import datetime
 import time
+from typing import Tuple
 
-async def broadcast_messages(user_id, message):
+BROADCAST_LIMIT = 20  # Messages per minute
+BROADCAST_DELAY = 60 / BROADCAST_LIMIT
+
+async def broadcast_messages(user_id: int, message) -> Tuple[bool, str]:
     try:
         await message.copy(chat_id=user_id)
+        await asyncio.sleep(BROADCAST_DELAY)  # Rate limiting
         return True, "Success"
     except FloodWait as e:
-        await asyncio.sleep(e.value)
+        await asyncio.sleep(e.value + 1)
         return await broadcast_messages(user_id, message)
     except InputUserDeactivated:
-        await db.delete_user(int(user_id))
+        await db.delete_user(user_id)
         return False, "Deleted"
     except UserIsBlocked:
-        await db.delete_user(int(user_id))
+        await db.delete_user(user_id)
         return False, "Blocked"
     except PeerIdInvalid:
-        await db.delete_user(int(user_id))
+        await db.delete_user(user_id)
         return False, "Error"
     except Exception as e:
+        logger.error(f"Broadcast error for {user_id}: {e}")
         return False, "Error"
 
-
 @Client.on_message(filters.command("broadcast") & filters.user(ADMINS) & filters.reply)
-async def verupikkals(bot, message):
+async def broadcast_handler(bot, message):
     users = await db.get_all_users()
     b_msg = message.reply_to_message
+    
     if not b_msg:
-        return await message.reply_text("**Reply This Command To Your Broadcast Message**")
-    sts = await message.reply_text(
-        text='Broadcasting your messages...'
-    )
+        return await message.reply_text("Please reply to a message to broadcast")
+        
+    status_msg = await message.reply_text("Broadcasting your messages...")
+    
     start_time = time.time()
     total_users = await db.total_users_count()
-    done = 0
-    blocked = 0
-    deleted = 0
-    failed =0
+    stats = {
+        'done': 0,
+        'success': 0,
+        'blocked': 0,
+        'deleted': 0,
+        'failed': 0
+    }
 
-    success = 0
     async for user in users:
-        if 'id' in user:
-            pti, sh = await broadcast_messages(int(user['id']), b_msg)
-            if pti:
-                success += 1
-            elif pti == False:
-                if sh == "Blocked":
-                    blocked += 1
-                elif sh == "Deleted":
-                    deleted += 1
-                elif sh == "Error":
-                    failed += 1
-            done += 1
-            if not done % 20:
-                await sts.edit(f"Broadcast in progress:\n\nTotal Users {total_users}\nCompleted: {done} / {total_users}\nSuccess: {success}\nBlocked: {blocked}\nDeleted: {deleted}")    
+        if 'id' not in user:
+            stats['failed'] += 1
+            continue
+            
+        result, status = await broadcast_messages(user['id'], b_msg)
+        
+        if result:
+            stats['success'] += 1
         else:
-            # Handle the case where 'id' key is missing in the user dictionary
-            done += 1
-            failed += 1
-            if not done % 20:
-                await sts.edit(f"Broadcast in progress:\n\nTotal Users {total_users}\nCompleted: {done} / {total_users}\nSuccess: {success}\nBlocked: {blocked}\nDeleted: {deleted}")    
-    
+            if status == "Blocked":
+                stats['blocked'] += 1
+            elif status == "Deleted":
+                stats['deleted'] += 1
+            else:
+                stats['failed'] += 1
+                
+        stats['done'] += 1
+        
+        if stats['done'] % 20 == 0:
+            await status_msg.edit(
+                f"Broadcast progress:\n\n"
+                f"Total Users: {total_users}\n"
+                f"Completed: {stats['done']}/{total_users}\n"
+                f"Success: {stats['success']}\n"
+                f"Blocked: {stats['blocked']}\n"
+                f"Deleted: {stats['deleted']}\n"
+                f"Failed: {stats['failed']}"
+            )
+
     time_taken = datetime.timedelta(seconds=int(time.time()-start_time))
-    await sts.edit(f"Broadcast Completed:\nCompleted in {time_taken} seconds.\n\nTotal Users {total_users}\nCompleted: {done} / {total_users}\nSuccess: {success}\nBlocked: {blocked}\nDeleted: {deleted}")
+    await status_msg.edit(
+        f"Broadcast completed in {time_taken}:\n\n"
+        f"Total Users: {total_users}\n"
+        f"Success: {stats['success']}\n"
+        f"Blocked: {stats['blocked']}\n"
+        f"Deleted: {stats['deleted']}\n"
+        f"Failed: {stats['failed']}"
+    )
