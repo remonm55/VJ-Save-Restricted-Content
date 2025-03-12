@@ -7,16 +7,17 @@ class Database:
         self.db = self.client[DB_NAME]
         self.col = self.db.users
 
-    async def is_user_exist(self, id):  # Added missing method
+    # Fixed method name to match exactly what's being called
+    async def is_user_exist(self, id):
         user = await self.col.find_one({'id': int(id)})
         return bool(user)
 
-    # Keep all other original methods below
+    # Keep all original methods below unchanged
     def new_user(self, id, name):
         return dict(
             id=id,
             name=name,
-            session=None,
+            session=None
         )
     
     async def add_user(self, id, name):
@@ -42,4 +43,5 @@ class Database:
         user = await self.col.find_one({'id': int(id)})
         return user.get('session') if user else None
 
+# Initialize database instance
 db = Database()
