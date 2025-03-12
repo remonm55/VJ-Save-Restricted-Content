@@ -13,5 +13,6 @@ RUN pip3 install --no-cache-dir -U pip setuptools wheel && \
 
 COPY . .
 
-# Start bot first, then web server
-CMD python3 -m bot && gunicorn app:app --bind 0.0.0.0:$PORT --workers 2
+# Start web server in background and bot with retry
+CMD gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 & \
+    sleep 3600 && python3 -m bot  # Wait 1 hour before first attempt
