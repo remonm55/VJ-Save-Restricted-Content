@@ -125,6 +125,8 @@ async def save(client: Client, message: Message):
                     username = datas[3]
                     tasks.append(handle_public(client, acc, message, username, msgid))
 
+                await asyncio.sleep(1)  # Added delay to avoid rate limits
+
             await asyncio.gather(*tasks)
             batch_temp.IS_BATCH[message.from_user.id] = True
     except Exception as e:
