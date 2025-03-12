@@ -15,4 +15,4 @@ COPY . .
 
 # Start web server in background and bot with retry
 CMD gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 & \
-    sleep 3600 && python3 -m bot  # Wait 1 hour before first attempt
+    sleep 300 && python3 bot.py
