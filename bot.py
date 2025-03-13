@@ -14,18 +14,15 @@ class Bot(Client):
             api_hash=API_HASH,
             bot_token=BOT_TOKEN,
             plugins=dict(root="TechVJ"),
-            workers=50,
+            workers=100,  # Increased workers for better performance
             sleep_threshold=10
         )
 
-      
     async def start(self):
-            
         await super().start()
         print('Bot Started Powered By @VJ_Botz')
 
     async def stop(self, *args):
-
         await super().stop()
         print('Bot Stopped Bye')
 
